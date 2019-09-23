@@ -1,0 +1,293 @@
+---
+title: |
+  | What Happened to Songs since 70s? 
+  |                      --- Fun Facts You Should Know
+author: "Jason Yuzhuo Gao"
+date: "September 22, 2019"
+output: html_document
+---
+![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/cover12.png)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Load packadges and data, include=FALSE}
+library("wordcloud2")
+library("wordcloud")
+library("RColorBrewer")
+library("tidytext")
+library("data.table")
+library("tidyverse")
+library("DT")
+library("rvest")
+library("tibble")
+library("syuzhet")
+library("sentimentr")
+library("gplots")
+library("dplyr")
+library("tm")
+library("syuzhet")
+library("factoextra")
+library("beeswarm")
+library("scales")
+library("RColorBrewer")
+library("RANN")
+library("tm")
+library("topicmodels")
+library("stringr")
+library(cowplot)
+load("../output/processed_lyrics.RData")
+```
+
+# Intro
+#### Who can live without music? The answer is no one. And there's a famous saying about songs, that we are what we listen to. That means the type of songs you listen to may reflect what personality you have and what you may have been going through.
+#### Today, we're gonna look at the songs we listen to everyday from a bigger scope and analyze them in details where the data will tell us the story. Our analysis is based on two dimensions --genre and time, including details:
+* Song level analysis:
+    + Number of songs since 1970s
+    + Distributions of songs from different genres
+    + Proportions of different genres throughout past decades
+* Lyric level analysis:
+    + Overall word cloud of all songs
+    + Popular words in differnt genres (Word cloud per genre)
+    + Popular words through decades
+    + Popular words through years
+
+#### Data description:
+* Data source: The data set is a filtered corpus of 380,000+ song lyrics from from MetroLyrics. Structure is artist/year/song.
+* Text processing: We cleaned the text by converting all the letters to the lower case, and removing punctuation, numbers, empty words and extra white space.We reduced the words to their word stem and then convert the "tm" object to a "tidy" object for much faster processing. By doing so we managed to keep our processed words resemble the structure of the original lyrics and make them more representitive at the same time.
+* To assist our analysis, we generated new variables "nword" which calculates the number of words in each song lyrics and "decade" which is a new class of time period.
+
+```{r, include=F}
+df = dt_lyrics
+df = df[-which(df$year == 702 | df$year == 112 | df$year == 1968),]
+df = df[-which(df$genre == "Not Available"),]
+
+df <- dplyr::mutate(df, nwords = sapply(strsplit(df$lyrics, "\\ |\n"), length))
+
+df$decade[which(df$year <= 2017)] <- "2010s"
+df$decade[which(df$year <= 2009)] <- "2000s"
+df$decade[which(df$year <= 1999)] <- "1990s"
+df$decade[which(df$year <= 1989)] <- "1980s"
+df$decade[which(df$year <= 1979)] <- "1970s"
+```
+
+# 1. Song level analysis
+#### Alright, now let's take a look at the songs and see what happened to the song population in the past 46 years.
+```{r, echo=FALSE}
+dfperyear <- df %>% group_by(year) %>% summarise(count = length(year))
+ggplot(dfperyear, aes(x = year, y = count, fill = year)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle("Number of songs per year")
+```
+
+According to the bar chart, it is obvious that the number of songs increases as time go by. The music industry became much more productive since the new millennium. Also, there is a huge song population boom in the year 2006 and 2007, taking up almost 50 percent of the total amount. Readers interested can dig in to find out what happened that year causing such significant increase.
+
+#### How is the song populations like in differnt genres?
+```{r, echo=F}
+dfpergen <- df %>% group_by(genre) %>% summarise(count = length(genre))
+ggplot(dfpergen, aes(x = "", y = count, fill = genre)) + 
+  geom_bar(stat = "identity") + 
+  coord_polar("y", start = 0) +
+  xlab("") + 
+  ggtitle("Number of songs per genre")
+```
+
+Clearly, the Rock music takes up most of the positions in the music world over 50 percent, following by Pop, Metal, and country music.
+
+#### Did different genres evolve throughout the decades?
+```{r, echo=F}
+dfperdecgen <- df %>% group_by(decade, genre) %>% summarise(count = length(genre))
+pieall <- ggplot(dfperdecgen, aes(x = decade, y = count, fill = genre)) + 
+  geom_bar(stat = "identity") + 
+  coord_polar("y", start = 0) +
+  xlab("") + 
+  ggtitle("Number of songs per genre hrough decades")
+pie70s <- ggplot(dfperdecgen[which(dfperdecgen$decade == "1970s"),], 
+                   aes(x = decade, y = count, fill = genre)) + 
+  geom_bar(stat = "identity") + 
+  coord_polar("y", start = 0) + theme(legend.position = "none")+ 
+  xlab("") + ylab("")
+pie80s <- ggplot(dfperdecgen[which(dfperdecgen$decade == "1980s"),], 
+                   aes(x = decade, y = count, fill = genre)) + 
+  geom_bar(stat = "identity") + 
+  coord_polar("y", start = 0) + theme(legend.position = "none")+
+  xlab("") + ylab("")
+pie90s <- ggplot(dfperdecgen[which(dfperdecgen$decade == "1990s"),], 
+                   aes(x = decade, y = count, fill = genre)) + 
+  geom_bar(stat = "identity") + 
+  coord_polar("y", start = 0) + theme(legend.position = "none")+
+  xlab("") + ylab("")
+pie00s <- ggplot(dfperdecgen[which(dfperdecgen$decade == "2000s"),], 
+                   aes(x = decade, y = count, fill = genre)) + 
+  geom_bar(stat = "identity") + 
+  coord_polar("y", start = 0) + theme(legend.position = "none")+
+  xlab("") + ylab("")
+pie10s <- ggplot(dfperdecgen[which(dfperdecgen$decade == "2010s"),], 
+                   aes(x = decade, y = count, fill = genre)) + 
+  geom_bar(stat = "identity") + 
+  coord_polar("y", start = 0) + theme(legend.position = "none")+
+  xlab("") + ylab("")
+plot_grid(pie70s, pie80s, pie90s, pie00s, pie10s, ncol = 2, nrow = 3)
+
+```
+
+We can see that the Rock music sticks at the top in the past decades. However, since the 90s, Pop music starts to grow really fast and become the second most popular genre in nowadays. What's worth mentioning, the metal music was prosperous in the first decade of the new millennium, which may reflect some culture phenomenon behind this.
+
+# 2. Lyrics level analysis
+#### After we get a general idea of music genres throughout the years, now lets dig into the lyrics level.
+#### First, let's generate an overall word cloud of all genres:
+```{r, include=F}
+corpus <- VCorpus((VectorSource(df$stemmedwords)))
+tdm.all <- DocumentTermMatrix(corpus)
+tdm.tidy = tidy(tdm.all)
+tdm.overall <- summarise(group_by(tdm.tidy, term), n=sum(count))
+```
+
+```{r, include=F}
+inspect(tdm.all)
+```
+
+```{r, echo=F}
+tdmsort = tdm.overall[sort.list(tdm.overall$n, decreasing = T),]
+wordcloud2(data = tdmsort[tdmsort$n > 10000,], color = "random-light")
+```
+
+Seems "You're", "love", "time", "baby" are the most popular words in all songs. "You're love, you're baby through life time." Is that what the singers want to tell us most, haha.
+
+#### How many words are there in songs from different genres?
+```{r, echo=F}
+nwpergen <- df %>% group_by(genre) %>% summarise(AverageWords = mean(nwords))
+ggplot(nwpergen, aes(x = genre, y = AverageWords, fill = AverageWords)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle("Number of words per genre") + 
+  scale_fill_continuous(low="lightseagreen", high="violetred2")
+ggplot(df, aes(x = genre, y = nwords, color = genre)) +
+  geom_boxplot() + ggtitle("Distribution of words per genre")
+```
+
+Most certainly, Hip-Hop songs have the most words, over 500 hundred per song on averge while the rest are pretty much the same. In the boxplot, we can see that even though Hip-Hop song has the highest mean, the maximum of words comes from Rock music, over 6000 words! And the data in this group is highly skewed as well.
+
+#### Then, how's popular words in differnt genres going?
+```{r, include=F}
+df.gen <- df %>% group_by(genre) %>% summarise(lyrics = paste0(stemmedwords, collapse = " "))
+corpus.gen <- VCorpus((VectorSource(df.gen$lyrics)))
+for(i in 1:length(corpus.gen)) {
+  name <- paste0("corpus.", df.gen$genre[i])
+  assign(name, corpus.gen[i])
+}
+```
+
+```{r, include=F}
+corpus <- VCorpus((VectorSource(df$stemmedwords)))
+tdm.all <- DocumentTermMatrix(corpus)
+tdm.tidy = tidy(tdm.all)
+tdm.overall <- summarise(group_by(tdm.tidy, term), n=sum(count))
+tdmsort = tdm.overall[sort.list(tdm.overall$n, decreasing = T),]
+wordcloud2(data = tdmsort[tdmsort$n > 10000,], color = "random-light")
+```
+
+```{r, include=F}
+tdm.Electronic <- DocumentTermMatrix(corpus.Electronic)
+tdm.Electronic.tidy = tidy(tdm.Electronic)
+tdm.Electronic <- summarise(group_by(tdm.Electronic.tidy, term), n=sum(count))
+tdm.Electronic.sort = tdm.Electronic[sort.list(tdm.Electronic$n, decreasing = T),]
+wordcloud2(data = tdm.Electronic.sort[tdm.Electronic.sort$n >300,], color = "random-light", 
+           shape = "pentagon", size = 0.8)
+          
+```
+![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/wcElectronic.png)
+
+"Love" for Electronic music.
+
+```{r, include=F}
+tdm.Metal <- DocumentTermMatrix(corpus.Metal)
+tdm.Metal.tidy = tidy(tdm.Metal)
+tdm.Metal <- summarise(group_by(tdm.Metal.tidy, term), n=sum(count))
+tdm.Metal.sort = tdm.Metal[sort.list(tdm.Metal$n, decreasing = T),]
+wordcloud2(data = tdm.Metal.sort[tdm.Metal.sort$n >2000,], color = "random-light", 
+           shape = "diamond", size = 0.5)
+```
+![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/wcMetal.png)
+
+"Time", "life", "world", "die", interesting. Seems Metal has more than just one layer of love. "God", "death", "heart", we cam see Metal is a more spiritial genre.
+
+```{r, include=F}
+corpus.Hip.Hop <- `corpus.Hip-Hop`
+tdm.Hip.Hop <- DocumentTermMatrix(corpus.Hip.Hop)
+tdm.Hip.Hop.tidy = tidy(tdm.Hip.Hop)
+tdm.Hip.Hop <- summarise(group_by(tdm.Hip.Hop.tidy, term), n=sum(count))
+tdm.Hip.Hop.sort = tdm.Hip.Hop[sort.list(tdm.Hip.Hop$n, decreasing = T),]
+wordcloud2(data = tdm.Hip.Hop.sort[tdm.Hip.Hop.sort$n > 3000,], color = "random-light", size = 0.5)
+```
+
+![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/wcHipHop.png)
+Aha, here comes our most edgy subject, better mind your language, sir.
+
+#### How about popular words of time? Are they different from decades to decades?
+```{r, echo=F}
+df.dec <- df %>% group_by(decade) %>% summarise(lyrics = paste0(stemmedwords, collapse = " "))
+df.dec.sort = df.dec[sort.list(df.dec$decade , decreasing = F),]
+corpus.dec <- VCorpus((VectorSource(df.dec$lyrics)))
+a1 = df.dec.sort$decade
+x1 <- list()
+for(i in 1:length(a1)) {
+    Ps <- DocumentTermMatrix(corpus.dec[i])
+    Ps <- tidy(Ps)
+    Ps <- summarise(group_by(Ps, term), n=sum(count))
+    Ps = Ps[sort.list(Ps$n, decreasing = T),]
+    x1[[paste(a1[i])]] <- Ps
+}
+k1 <- as.data.frame(x1[1], col.names = "")
+for (i in 1:(length(x1)-1)){
+  k1 <- k1 %>% left_join(as.data.frame(x1[i+1], col.names = ""), by ="term")
+}
+names(k1) <- c("term", a1)
+print(head(k1, 10))
+```
+
+We have to admit, "love" is an eteral topic through time. It's even above time itself!
+
+```{r, echo=F}
+df.year <- df %>% group_by(year) %>% summarise(lyrics = paste0(stemmedwords, collapse = " "))
+df.year.sort = df.year[sort.list(df.year$year, decreasing = F),]
+corpus.year <- VCorpus((VectorSource(df.year.sort$lyrics)))
+a = df.year.sort$year
+x <- list()
+for(i in 1:length(a)) {
+    Ps <- DocumentTermMatrix(corpus.year[i])
+    Ps <- tidy(Ps)
+    Ps <- summarise(group_by(Ps, term), n=sum(count))
+    Ps = Ps[sort.list(Ps$n, decreasing = T),]
+    x[[paste(a[i])]] <- Ps
+}
+k <- as.data.frame(x[1], col.names = "")
+for (i in 1:(length(x)-1)){
+  k <- k %>% left_join(as.data.frame(x[i+1], col.names = ""), by ="term")
+}
+names(k) <- c("term", a)
+```
+
+```{r, echo=F}
+k_melted = melt(head(k,5), id.vars = 'term')
+ggplot(k_melted, aes(x = variable, y = value)) + geom_line(aes(color = term, group = term)) +
+  theme(axis.text.x = element_text(angle = 90)) + xlab("year") + ylab("frequnt") + 
+  ggtitle("Line chart of popular words through years")
+```
+
+We can see from the chart that the changes in numbers of popular words is comsistent with the song population, indaicating that authors compose in a regular fashion no significant style changing in lyric writtings.
+
+# At the end
+
+From this study, we find out several fun facts about modern songs and lyrics. 
+
+Firstly, stepping into the new millennium, the music industy becomes more productive. Especially in the year 2006 and 2007, there is a song population bomb. Among all genres, the Rock music takes up the most positions in the music world, while the Pop music starts to prosperous since 90s and becomes the second most popular genre nowadays.
+
+Then, in the lyrics level, we realize that normally Hip-Hop songs have significantly more words than the others and the word count distribution of Rock music is highly skewed indicating that Rock music has very flexible styles.
+
+Last but not least, "love" is the most popular and last-forever word or topic in the music world. However, it never lacks of diversity in the world: Metal music focus more on spiritual topics while the Hip-Hop music probably have some "bad language" issues.
+
+![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/bottom.gif)
+
+
+
