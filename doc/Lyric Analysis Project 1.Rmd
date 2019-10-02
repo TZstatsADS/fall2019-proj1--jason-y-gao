@@ -6,7 +6,7 @@ author: "Jason Yuzhuo Gao"
 date: "September 22, 2019"
 output: html_document
 ---
-![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/cover12.png)
+![ ](/Users/Yuzhuo.Gao/Documents/R/fall2019-proj1--jason-y-gao/figs/cover12.png)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -36,7 +36,12 @@ library("RANN")
 library("tm")
 library("topicmodels")
 library("stringr")
-library(cowplot)
+library("cowplot")
+library("janeaustenr")
+library("stringr")
+library("ggplot2")
+library("textdata")
+library("reshape2")
 load("../output/processed_lyrics.RData")
 ```
 
@@ -50,8 +55,10 @@ load("../output/processed_lyrics.RData")
 * Lyric level analysis:
     + Overall word cloud of all songs
     + Popular words in differnt genres (Word cloud per genre)
+    + Lyric sentiment by genres
     + Popular words through decades
     + Popular words through years
+    
 
 #### Data description:
 * Data source: The data set is a filtered corpus of 380,000+ song lyrics from from MetroLyrics. Structure is artist/year/song.
@@ -196,9 +203,6 @@ wordcloud2(data = tdm.Electronic.sort[tdm.Electronic.sort$n >300,], color = "ran
            shape = "pentagon", size = 0.8)
           
 ```
-![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/wcElectronic.png)
-
-"Love" for Electronic music.
 
 ```{r, include=F}
 tdm.Metal <- DocumentTermMatrix(corpus.Metal)
@@ -208,7 +212,7 @@ tdm.Metal.sort = tdm.Metal[sort.list(tdm.Metal$n, decreasing = T),]
 wordcloud2(data = tdm.Metal.sort[tdm.Metal.sort$n >2000,], color = "random-light", 
            shape = "diamond", size = 0.5)
 ```
-![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/wcMetal.png)
+![ ](/Users/Yuzhuo.Gao/Documents/R/fall2019-proj1--jason-y-gao/figs/wcMetal.png)
 
 "Time", "life", "world", "die", interesting. Seems Metal has more than just one layer of love. "God", "death", "heart", we cam see Metal is a more spiritial genre.
 
@@ -221,8 +225,59 @@ tdm.Hip.Hop.sort = tdm.Hip.Hop[sort.list(tdm.Hip.Hop$n, decreasing = T),]
 wordcloud2(data = tdm.Hip.Hop.sort[tdm.Hip.Hop.sort$n > 3000,], color = "random-light", size = 0.5)
 ```
 
-![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/wcHipHop.png)
+![ ](/Users/Yuzhuo.Gao/Documents/R/fall2019-proj1--jason-y-gao/figs/wcHipHop.png)
+
 Aha, here comes our most edgy subject, better mind your language, sir.
+
+#### Now, let's take a look at the sentiments of lyrics of different genres
+```{r, include=F}
+HipHopdf <- tdm.Hip.Hop
+names(HipHopdf) <- c("word","n")
+metaldf <- tdm.Metal
+names(metaldf) <- c("word","n")
+electronicdf <- tdm.Electronic
+names(electronicdf) <- c("word","n")
+```
+
+```{r, include=F}
+hiphop_sentiment <- HipHopdf %>%
+  inner_join(get_sentiments("bing"))%>%
+  mutate(index = row_number() %/% 40)%>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative) %>%
+  mutate(genre = "hiphop")
+metal_sentiment <- metaldf %>%
+  inner_join(get_sentiments("bing"))%>%
+  mutate(index = row_number() %/% 40)%>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative) %>%
+  mutate(genre = "metal")
+electronic_sentiment <- electronicdf %>%
+  inner_join(get_sentiments("bing"))%>%
+  mutate(index = row_number() %/% 40)%>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative) %>%
+  mutate(genre = "electronic")
+
+```
+
+```{r, echo=F}
+sentimentdf <- dplyr::bind_rows(hiphop_sentiment, metal_sentiment, electronic_sentiment)
+ggplot(sentimentdf, aes(index, sentiment, fill = genre)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ genre, ncol = 2, scales = "free_x")
+```
+
+We can see that Hip-Hop and Metal have more negative words than positive ones while electronic music is the oppsite.
+
+```{r, echo=F}
+HipHopdf %>%
+  inner_join(get_sentiments("bing"))%>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 200)
+```
+
 
 #### How about popular words of time? Are they different from decades to decades?
 ```{r, echo=F}
@@ -287,7 +342,7 @@ Then, in the lyrics level, we realize that normally Hip-Hop songs have significa
 
 Last but not least, "love" is the most popular and last-forever word or topic in the music world. However, it never lacks of diversity in the world: Metal music focus more on spiritual topics while the Hip-Hop music probably have some "bad language" issues.
 
-![ ](/Users/jason/Documents/R/fall2019-proj1--jason-y-gao/figs/bottom.gif)
+![ ](/Users/Yuzhuo.Gao/Documents/R/fall2019-proj1--jason-y-gao/figs/bottom.gif)
 
 
 
